@@ -1,0 +1,14 @@
+# Versteckte Dateien
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtuelle Umgebung
+venv/
+*.env
+*.secret
+
+# Streamlit & Logs
+.streamlit/
+logs/
+".streamlit/secrets.toml" 
