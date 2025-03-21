@@ -101,14 +101,4 @@ Alle Daten werden in JSON-Dateien im Verzeichnis `data/` gespeichert:
 - `projects.json`: Projektdaten
 - `homeoffice_data.json`: Homeoffice-Daten
 
-## Inspiriert von führenden Zeiterfassungssystemen
 
-Die Funktionen dieser App wurden inspiriert von den besten Praktiken folgender Zeiterfassungssysteme:
-
-- Clockin
-- ZEP
-- Crewmeister
-- TimeTac
-- MOCO
-- Personizer
-- ZMI
