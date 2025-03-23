@@ -1,0 +1,1 @@
+[{"id": 1, "name": "Projekt A", "description": "Beschreibung f\u00fcr Projekt A", "budget_hours": 100, "used_hours": 0}, {"id": 2, "name": "Projekt B", "description": "Beschreibung f\u00fcr Projekt B", "budget_hours": 50, "used_hours": 0}, {"id": 3, "name": "Internes", "description": "Interne T\u00e4tigkeiten", "budget_hours": 0, "used_hours": 0}]

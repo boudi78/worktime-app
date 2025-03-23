@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "name": "Team 1",
+    "location": "Werner-Siemens-Straße 107"
+  },
+  {
+    "id": 2,
+    "name": "Team 2",
+    "location": "Werner-Siemens-Straße 39"
+  },
+  {
+    "id": 3,
+    "name": "Team 3",
+    "location": "Werner-Siemens-Straße 39"
+  },
+  {
+    "id": 4,
+    "name": "Lager",
+    "location": "Werner-Siemens-Straße 107"
+  }
+]

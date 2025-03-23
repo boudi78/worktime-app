@@ -6,6 +6,9 @@ import csv
 import io
 import base64
 from datetime import datetime, timedelta
+import sys
+sys.path.append('/home/ubuntu')
+from datetime_utils import parse_datetime_string
 
 def implement_export_functionality():
     """
@@ -120,11 +123,11 @@ def implement_export_functionality():
                 # Normale Benutzer sehen nur ihre eigenen Einträge
                 filtered_entries = [entry for entry in data["time_entries"] if entry.get("user_id") == user_id]
             
-            # Nach Datum filtern
+            # Nach Datum filtern - FIXED to handle both datetime formats
             filtered_entries = [
                 entry for entry in filtered_entries
-                if entry.get("start_time") and datetime.strptime(entry.get("start_time"), "%Y-%m-%d %H:%M:%S").date() >= start_date
-                and datetime.strptime(entry.get("start_time"), "%Y-%m-%d %H:%M:%S").date() <= end_date
+                if entry.get("start_time") and parse_datetime_string(entry.get("start_time")).date() >= start_date
+                and parse_datetime_string(entry.get("start_time")).date() <= end_date
             ]
             
             # Daten für Export vorbereiten
@@ -242,15 +245,8 @@ def implement_export_functionality():
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
                 elif export_format == "JSON":
-                    # JSON-Export (ohne Passwörter)
-                    safe_employees = []
-                    for emp in data["employees"]:
-                        emp_copy = emp.copy()
-                        if "password" in emp_copy:
-                            del emp_copy["password"]
-                        safe_employees.append(emp_copy)
-                    
-                    json_str = json.dumps(safe_employees, indent=2)
+                    # JSON-Export
+                    json_str = json.dumps(data["employees"], indent=2)
                     st.download_button(
                         label="Als JSON exportieren",
                         data=json_str,
@@ -267,12 +263,22 @@ def implement_export_functionality():
             if data["projects"]:
                 export_data = []
                 for project in data["projects"]:
+                    # Zeiteinträge für dieses Projekt finden
+                    project_entries = [
+                        entry for entry in data["time_entries"]
+                        if entry.get("project") == project["name"]
+                    ]
+                    
+                    # Gesamtstunden berechnen
+                    total_hours = sum(entry.get("duration_seconds", 0) / 3600 for entry in project_entries)
+                    
                     export_data.append({
                         "ID": project["id"],
                         "Name": project["name"],
                         "Beschreibung": project["description"],
-                        "Budget (Stunden)": project["budget_hours"],
-                        "Verbrauchte Stunden": project["used_hours"]
+                        "Budget (Std)": project["budget_hours"],
+                        "Verbrauchte Zeit (Std)": round(total_hours, 2),
+                        "Verbleibend (Std)": round(project["budget_hours"] - total_hours, 2) if project["budget_hours"] > 0 else "Unbegrenzt"
                     })
                 
                 # DataFrame erstellen
@@ -323,203 +329,158 @@ def implement_export_functionality():
         elif selected_tab == "Urlaub & Krankheit" and is_admin:
             st.subheader("Urlaubs- und Krankheitsdaten exportieren")
             
-            # Urlaubs- und Krankheitsdaten für Export vorbereiten
-            if data["leave_data"]:
-                # Urlaubsanträge
+            # Urlaubs- und Krankheitsdaten laden
+            leave_data = data["leave_data"]
+            
+            # Tabs für Urlaub und Krankheit
+            leave_tabs = ["Urlaub", "Krankheit"]
+            selected_leave_tab = st.selectbox("Kategorie auswählen", leave_tabs)
+            
+            if selected_leave_tab == "Urlaub":
+                # Urlaubsdaten für Export vorbereiten
                 vacation_data = []
-                for user_id, vacation_info in data["leave_data"].get("vacation", {}).items():
+                for emp_id, vacation_info in leave_data.get("vacation", {}).items():
                     # Mitarbeitername finden
                     employee_name = "Unbekannt"
                     for emp in data["employees"]:
-                        if str(emp["id"]) == user_id:
+                        if str(emp["id"]) == str(emp_id):
                             employee_name = emp["name"]
                             break
                     
-                    # Genehmigte Anträge
-                    for request in vacation_info.get("approved_requests", []):
+                    for vacation in vacation_info.get("entries", []):
                         vacation_data.append({
                             "Mitarbeiter": employee_name,
-                            "Startdatum": request.get("start_date", ""),
-                            "Enddatum": request.get("end_date", ""),
-                            "Tage": request.get("days", 0),
-                            "Status": "Genehmigt",
-                            "Antragsdatum": request.get("request_date", ""),
-                            "Genehmigungsdatum": request.get("approval_date", ""),
-                            "Grund": request.get("reason", "")
-                        })
-                    
-                    # Ausstehende Anträge
-                    for request in vacation_info.get("pending_requests", []):
-                        vacation_data.append({
-                            "Mitarbeiter": employee_name,
-                            "Startdatum": request.get("start_date", ""),
-                            "Enddatum": request.get("end_date", ""),
-                            "Tage": request.get("days", 0),
-                            "Status": "Ausstehend",
-                            "Antragsdatum": request.get("request_date", ""),
-                            "Genehmigungsdatum": "",
-                            "Grund": request.get("reason", "")
+                            "Von": vacation.get("start_date", ""),
+                            "Bis": vacation.get("end_date", ""),
+                            "Tage": vacation.get("days", 0),
+                            "Status": vacation.get("status", "Beantragt")
                         })
                 
-                # Krankmeldungen
+                if vacation_data:
+                    # DataFrame erstellen
+                    df = pd.DataFrame(vacation_data)
+                    
+                    # Vorschau anzeigen
+                    st.subheader("Vorschau")
+                    st.dataframe(df)
+                    
+                    # Export-Optionen
+                    st.subheader("Export-Optionen")
+                    export_format = st.radio("Format auswählen", ["CSV", "Excel", "JSON"], key="vac_format")
+                    
+                    if export_format == "CSV":
+                        # CSV-Export
+                        csv = df.to_csv(index=False)
+                        st.download_button(
+                            label="Als CSV exportieren",
+                            data=csv,
+                            file_name="urlaub_export.csv",
+                            mime="text/csv"
+                        )
+                    elif export_format == "Excel":
+                        # Excel-Export
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                            df.to_excel(writer, sheet_name='Urlaub', index=False)
+                        
+                        excel_data = output.getvalue()
+                        st.download_button(
+                            label="Als Excel exportieren",
+                            data=excel_data,
+                            file_name="urlaub_export.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    elif export_format == "JSON":
+                        # JSON-Export
+                        json_str = json.dumps(leave_data["vacation"], indent=2)
+                        st.download_button(
+                            label="Als JSON exportieren",
+                            data=json_str,
+                            file_name="urlaub_export.json",
+                            mime="application/json"
+                        )
+                else:
+                    st.info("Keine Urlaubsdaten gefunden.")
+            
+            elif selected_leave_tab == "Krankheit":
+                # Krankheitsdaten für Export vorbereiten
                 sick_leave_data = []
-                for user_id, sick_leaves in data["leave_data"].get("sick_leave", {}).items():
+                for emp_id, sick_leave_info in leave_data.get("sick_leave", {}).items():
                     # Mitarbeitername finden
                     employee_name = "Unbekannt"
                     for emp in data["employees"]:
-                        if str(emp["id"]) == user_id:
+                        if str(emp["id"]) == str(emp_id):
                             employee_name = emp["name"]
                             break
                     
-                    for sick_leave in sick_leaves:
+                    for sick_leave in sick_leave_info.get("entries", []):
                         sick_leave_data.append({
                             "Mitarbeiter": employee_name,
-                            "Startdatum": sick_leave.get("start_date", ""),
-                            "Enddatum": sick_leave.get("end_date", ""),
-                            "Tage": sick_leave.get("days", 0),
-                            "Ärztliche Bescheinigung": "Ja" if sick_leave.get("has_doctor_note", False) else "Nein",
-                            "Meldedatum": sick_leave.get("report_date", ""),
-                            "Grund": sick_leave.get("reason", "")
+                            "Von": sick_leave.get("start_date", ""),
+                            "Bis": sick_leave.get("end_date", ""),
+                            "Tage": sick_leave.get("days", 0)
                         })
                 
-                # DataFrames erstellen
-                vacation_df = pd.DataFrame(vacation_data)
-                sick_leave_df = pd.DataFrame(sick_leave_data)
-                
-                # Vorschau anzeigen
-                st.subheader("Urlaubsanträge")
-                if not vacation_df.empty:
-                    st.dataframe(vacation_df.head(10) if len(vacation_df) > 10 else vacation_df)
-                else:
-                    st.info("Keine Urlaubsanträge gefunden.")
-                
-                st.subheader("Krankmeldungen")
-                if not sick_leave_df.empty:
-                    st.dataframe(sick_leave_df.head(10) if len(sick_leave_df) > 10 else sick_leave_df)
-                else:
-                    st.info("Keine Krankmeldungen gefunden.")
-                
-                # Export-Optionen
-                st.subheader("Export-Optionen")
-                export_format = st.radio("Format auswählen", ["CSV", "Excel", "JSON"], key="leave_format")
-                
-                if export_format == "CSV":
-                    # CSV-Export
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if not vacation_df.empty:
-                            csv = vacation_df.to_csv(index=False)
-                            st.download_button(
-                                label="Urlaubsanträge als CSV exportieren",
-                                data=csv,
-                                file_name="urlaub_export.csv",
-                                mime="text/csv"
-                            )
-                    with col2:
-                        if not sick_leave_df.empty:
-                            csv = sick_leave_df.to_csv(index=False)
-                            st.download_button(
-                                label="Krankmeldungen als CSV exportieren",
-                                data=csv,
-                                file_name="krankheit_export.csv",
-                                mime="text/csv"
-                            )
-                
-                elif export_format == "Excel":
-                    # Excel-Export
-                    output = io.BytesIO()
-                    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                        if not vacation_df.empty:
-                            vacation_df.to_excel(writer, sheet_name='Urlaub', index=False)
-                        if not sick_leave_df.empty:
-                            sick_leave_df.to_excel(writer, sheet_name='Krankheit', index=False)
+                if sick_leave_data:
+                    # DataFrame erstellen
+                    df = pd.DataFrame(sick_leave_data)
                     
-                    excel_data = output.getvalue()
-                    st.download_button(
-                        label="Als Excel exportieren",
-                        data=excel_data,
-                        file_name="urlaub_krankheit_export.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                
-                elif export_format == "JSON":
-                    # JSON-Export
-                    json_str = json.dumps(data["leave_data"], indent=2)
-                    st.download_button(
-                        label="Als JSON exportieren",
-                        data=json_str,
-                        file_name="urlaub_krankheit_export.json",
-                        mime="application/json"
-                    )
-            else:
-                st.info("Keine Urlaubs- und Krankheitsdaten gefunden.")
+                    # Vorschau anzeigen
+                    st.subheader("Vorschau")
+                    st.dataframe(df)
+                    
+                    # Export-Optionen
+                    st.subheader("Export-Optionen")
+                    export_format = st.radio("Format auswählen", ["CSV", "Excel", "JSON"], key="sick_format")
+                    
+                    if export_format == "CSV":
+                        # CSV-Export
+                        csv = df.to_csv(index=False)
+                        st.download_button(
+                            label="Als CSV exportieren",
+                            data=csv,
+                            file_name="krankheit_export.csv",
+                            mime="text/csv"
+                        )
+                    elif export_format == "Excel":
+                        # Excel-Export
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                            df.to_excel(writer, sheet_name='Krankheit', index=False)
+                        
+                        excel_data = output.getvalue()
+                        st.download_button(
+                            label="Als Excel exportieren",
+                            data=excel_data,
+                            file_name="krankheit_export.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    elif export_format == "JSON":
+                        # JSON-Export
+                        json_str = json.dumps(leave_data["sick_leave"], indent=2)
+                        st.download_button(
+                            label="Als JSON exportieren",
+                            data=json_str,
+                            file_name="krankheit_export.json",
+                            mime="application/json"
+                        )
+                else:
+                    st.info("Keine Krankheitsdaten gefunden.")
         
         elif selected_tab == "Vollständiger Export" and is_admin:
             st.subheader("Vollständigen Datenexport erstellen")
             
-            st.warning("Diese Funktion exportiert alle Daten der Anwendung. Bitte stellen Sie sicher, dass Sie die Daten sicher aufbewahren.")
+            st.write("Diese Funktion erstellt einen vollständigen Export aller Daten der Anwendung.")
+            st.warning("Achtung: Der Export enthält sensible Daten wie Benutzernamen und Passwörter. Bitte sorgfältig behandeln!")
             
-            # Export-Optionen
-            export_format = st.radio("Format auswählen", ["JSON", "Excel"], key="full_format")
-            
-            if export_format == "JSON":
-                # JSON-Export
-                # Passwörter aus dem Export entfernen
-                safe_data = data.copy()
-                for emp in safe_data["employees"]:
-                    if "password" in emp:
-                        del emp["password"]
-                
-                json_str = json.dumps(safe_data, indent=2)
+            if st.button("Vollständigen Export erstellen"):
+                # JSON-Export aller Daten
+                json_str = json.dumps(data, indent=2)
                 st.download_button(
-                    label="Vollständigen Export als JSON herunterladen",
+                    label="Vollständigen Export herunterladen",
                     data=json_str,
-                    file_name="zeiterfassung_vollexport.json",
+                    file_name="vollstaendiger_export.json",
                     mime="application/json"
                 )
-            
-            elif export_format == "Excel":
-                # Excel-Export
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    # Mitarbeiter
-                    if data["employees"]:
-                        emp_data = []
-                        for emp in data["employees"]:
-                            emp_copy = emp.copy()
-                            if "password" in emp_copy:
-                                del emp_copy["password"]
-                            emp_data.append(emp_copy)
-                        
-                        emp_df = pd.DataFrame(emp_data)
-                        emp_df.to_excel(writer, sheet_name='Mitarbeiter', index=False)
-                    
-                    # Zeiteinträge
-                    if data["time_entries"]:
-                        time_df = pd.DataFrame(data["time_entries"])
-                        time_df.to_excel(writer, sheet_name='Zeiteinträge', index=False)
-                    
-                    # Projekte
-                    if data["projects"]:
-                        proj_df = pd.DataFrame(data["projects"])
-                        proj_df.to_excel(writer, sheet_name='Projekte', index=False)
-                    
-                    # Urlaub und Krankheit
-                    if data["leave_data"]:
-                        # Zu komplex für direktes DataFrame, als JSON in Zelle
-                        leave_df = pd.DataFrame([{"data": json.dumps(data["leave_data"])}])
-                        leave_df.to_excel(writer, sheet_name='Urlaub_Krankheit', index=False)
-                
-                excel_data = output.getvalue()
-                st.download_button(
-                    label="Vollständigen Export als Excel herunterladen",
-                    data=excel_data,
-                    file_name="zeiterfassung_vollexport.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
     
-    # Rückgabe der UI-Funktion
     return show_export_ui
-
-# Exportiere die Funktionen
-__all__ = ['implement_export_functionality']
