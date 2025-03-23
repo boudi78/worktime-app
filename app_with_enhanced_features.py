@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Callable
 import datetime
 from dateutil.relativedelta import relativedelta
 import os
+from supabase_integration import load_employees_from_supabase, save_employees_to_supabase
+
 
 # Import der Datenpersistenz-Funktionen
 from data_persistence import (
@@ -348,34 +350,49 @@ def verwalte_allgemeine_daten():
             st.success(f"Standort für Team '{team_auswahl_bearbeiten}' aktualisiert.")
 
 # Login-Funktion
-def show_login_page() -> None:
-    """Zeigt die Login-Seite an."""
+def show_login_page():
     st.title("Login")
-
-    # Eingabefelder für den Login
-    username = st.text_input("Benutzername", key="login_username")
-    password = st.text_input("Passwort", type="password", key="login_password")
-
-    # Login-Button
-    if st.button("Login", key="login_button"):
-        # Überprüfen, ob Benutzername und Passwort korrekt sind
-        employees = load_employees()
-        user_exists = False
-
-        for employee in employees:
-            if employee["username"] == username and employee["password"] == password:
-                user_exists = True
-                st.session_state.logged_in = True
-                st.session_state.username = username
-                st.session_state.user_id = employee["id"]
-                st.session_state.is_admin = employee.get("is_admin", False)
-                st.session_state.current_employee = employee
-                st.success("Login erfolgreich!")
-                st.rerun()
-                break
-
-        if not user_exists:
+    
+    # Importiere die Supabase-Funktionen
+    from supabase_integration import login_user, init_supabase
+    
+    # Temporärer Admin-Benutzer für Streamlit Cloud
+    if "cloud_admin_added" not in st.session_state:
+        try:
+            # Füge Admin-Benutzer zu Supabase hinzu, falls er noch nicht existiert
+            supabase = init_supabase()
+            if supabase:
+                response = supabase.table("employees").select("*").eq("username", "admin").execute()
+                if not response.data:
+                    supabase.table("employees").insert({
+                        "id": 999,
+                        "name": "Admin User",
+                        "username": "admin",
+                        "password": "admin",
+                        "is_admin": True,
+                        "status": "Online"
+                    }).execute()
+        except Exception as e:
+            st.error(f"Fehler beim Erstellen des Admin-Benutzers: {str(e)}")
+        
+        st.session_state.cloud_admin_added = True
+    
+    # Login-Formular
+    username = st.text_input("Benutzername")
+    password = st.text_input("Passwort", type="password")
+    
+    if st.button("Login"):
+        user = login_user(username, password)
+        
+        if user:
+            st.session_state.user_id = user["id"]
+            st.session_state.is_admin = user.get("is_admin", False)
+            st.session_state.logged_in = True
+            st.success("Login erfolgreich!")
+            st.experimental_rerun()
+        else:
             st.error("Ungültiger Benutzername oder Passwort!")
+
 
 # Erweiterte Registrierungsfunktion
 def show_register_page() -> None:
