@@ -1,310 +1,264 @@
 import streamlit as st
-import pandas as pd
-import json
-import os
-from datetime import datetime, timedelta
+import datetime
 import calendar
+import pandas as pd
+import numpy as np
 
 def implement_holiday_calendar():
     """
-    Implementiert einen Feiertagskalender für Hamburg
+    Implementiert einen verbesserten Feiertagskalender mit besserer visueller Darstellung.
+    
+    Returns:
+        function: Eine Funktion, die den Feiertagskalender anzeigt.
     """
-    def save_holiday_data(holiday_data):
-        """Speichert Feiertagsdaten in einer JSON-Datei"""
-        data_dir = "data"
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
-            
-        file_path = os.path.join(data_dir, "holidays.json")
-        
-        with open(file_path, "w") as f:
-            json.dump(holiday_data, f)
-    
-    def load_holiday_data():
-        """Lädt Feiertagsdaten aus einer JSON-Datei"""
-        data_dir = "data"
-        file_path = os.path.join(data_dir, "holidays.json")
-        
-        if os.path.exists(file_path):
-            with open(file_path, "r") as f:
-                return json.load(f)
-        else:
-            # Standardfeiertage in Hamburg für 2025
-            hamburg_holidays_2025 = {
-                "2025-01-01": "Neujahr",
-                "2025-04-18": "Karfreitag",
-                "2025-04-21": "Ostermontag",
-                "2025-05-01": "Tag der Arbeit",
-                "2025-05-29": "Christi Himmelfahrt",
-                "2025-06-09": "Pfingstmontag",
-                "2025-10-03": "Tag der Deutschen Einheit",
-                "2025-12-25": "1. Weihnachtstag",
-                "2025-12-26": "2. Weihnachtstag"
-            }
-            
-            # Standardfeiertage in Hamburg für 2026
-            hamburg_holidays_2026 = {
-                "2026-01-01": "Neujahr",
-                "2026-04-03": "Karfreitag",
-                "2026-04-06": "Ostermontag",
-                "2026-05-01": "Tag der Arbeit",
-                "2026-05-14": "Christi Himmelfahrt",
-                "2026-05-25": "Pfingstmontag",
-                "2026-10-03": "Tag der Deutschen Einheit",
-                "2026-12-25": "1. Weihnachtstag",
-                "2026-12-26": "2. Weihnachtstag"
-            }
-            
-            # Beide Jahre kombinieren
-            holidays = {
-                "2025": hamburg_holidays_2025,
-                "2026": hamburg_holidays_2026
-            }
-            
-            save_holiday_data(holidays)
-            return holidays
-    
-    def is_holiday(date):
-        """Prüft, ob ein Datum ein Feiertag in Hamburg ist"""
-        holiday_data = load_holiday_data()
-        year = date.strftime("%Y")
-        date_str = date.strftime("%Y-%m-%d")
-        
-        if year in holiday_data and date_str in holiday_data[year]:
-            return True, holiday_data[year][date_str]
-        
-        return False, None
-    
-    def get_holidays_for_hamburg(year):
-        """Gibt alle Feiertage für Hamburg für ein bestimmtes Jahr zurück"""
-        holiday_data = load_holiday_data()
-        year_str = str(year)
-        
-        if year_str in holiday_data:
-            return holiday_data[year_str]
-        else:
-            return {}
     
     def show_holiday_calendar_ui():
         st.title("Feiertagskalender")
         
-        # CSS für einen schöneren Kalender
+        # CSS für den Kalender mit verbesserten Farben
         st.markdown("""
         <style>
+        /* Allgemeine Kalender-Styles */
         .calendar-container {
             margin: 20px 0;
-            font-family: 'Arial', sans-serif;
+            font-family: Arial, sans-serif;
         }
-        .month-selector {
-            margin-bottom: 20px;
-        }
+        
         .calendar-table {
             width: 100%;
             border-collapse: collapse;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-top: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
+        
         .calendar-table th {
-            background-color: #3366cc;
+            background-color: #2c3e50;
             color: white;
-            padding: 12px;
-            text-align: center;
             font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            border: 1px solid #ddd;
         }
+        
         .calendar-table td {
             padding: 10px;
             text-align: center;
-            border: 1px solid #e0e0e0;
-            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            background-color: #ecf0f1;
+            color: #333;
+            height: 60px;
+            vertical-align: top;
+            position: relative;
         }
-        .calendar-table td.weekend {
-            background-color: #f0f0f0;
-        }
+        
+        /* Spezifische Styles für verschiedene Tagestypen */
         .calendar-table td.holiday {
-            background-color: #ffcccc;
+            background-color: #e74c3c !important;
             font-weight: bold;
-            color: #cc0000;
+            color: white !important;
         }
+        
+        .calendar-table td.weekend {
+            background-color: #bdc3c7 !important;
+        }
+        
         .calendar-table td.today {
-            border: 2px solid #4CAF50;
+            border: 3px solid #27ae60 !important;
             font-weight: bold;
-        }
-        .calendar-table td:hover {
-            background-color: #e6e6e6;
-            cursor: pointer;
-        }
-        .legend {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            margin-right: 10px;
-            border-radius: 4px;
-        }
-        .holiday-color {
-            background-color: #ffcccc;
-        }
-        .weekend-color {
-            background-color: #f0f0f0;
-        }
-        .today-color {
-            background-color: #f9f9f9;
-            border: 2px solid #4CAF50;
+            background-color: #d5f5e3 !important;
         }
         </style>
         """, unsafe_allow_html=True)
         
-        # Aktuelles Jahr und Monat
-        current_year = datetime.now().year
-        current_month = datetime.now().month
-        current_day = datetime.now().day
+        # Jahr und Monat Auswahl
+        col1, col2 = st.columns(2)
         
-        # Jahr auswählen
-        col1, col2 = st.columns([1, 3])
         with col1:
-            selected_year = st.selectbox("Jahr", [current_year, current_year + 1], index=0)
+            year = st.selectbox("Jahr", range(2020, 2030), index=5, key="holiday_year_select")  # 2025 als Standard
         
-        # Monat auswählen mit schöneren Namen
-        month_names = ["Januar", "Februar", "März", "April", "Mai", "Juni", 
-                      "Juli", "August", "September", "Oktober", "November", "Dezember"]
         with col2:
-            selected_month_index = st.selectbox("Monat", range(len(month_names)), 
-                                              format_func=lambda i: month_names[i],
-                                              index=current_month-1)
-            selected_month = selected_month_index + 1
+            months = ["Januar", "Februar", "März", "April", "Mai", "Juni", 
+                     "Juli", "August", "September", "Oktober", "November", "Dezember"]
+            month = st.selectbox("Monat", months, index=datetime.datetime.now().month - 1, key="holiday_month_select")
         
-        # Feiertage für Hamburg laden
-        holidays = get_holidays_for_hamburg(selected_year)
+        # Monatsnummer ermitteln
+        month_num = months.index(month) + 1
+        
+        # Feiertage in Deutschland (Hamburg) für das ausgewählte Jahr
+        holidays = get_german_holidays(year)
+        
+        # Kalender anzeigen
+        display_calendar(year, month_num, holidays)
+        
+        # Legende mit Streamlit-Elementen anzeigen (nicht mit HTML/CSS)
+        st.subheader("Legende:")
+        
+        # Verwende Streamlit-Spalten für die Legende
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown('<div style="width:24px;height:24px;background-color:#e74c3c;margin-bottom:10px;"></div>', unsafe_allow_html=True)
+            st.write("Feiertag")
+            
+        with col2:
+            st.markdown('<div style="width:24px;height:24px;background-color:#bdc3c7;margin-bottom:10px;"></div>', unsafe_allow_html=True)
+            st.write("Wochenende")
+            
+        with col3:
+            st.markdown('<div style="width:24px;height:24px;background-color:#d5f5e3;border:3px solid #27ae60;margin-bottom:10px;"></div>', unsafe_allow_html=True)
+            st.write("Heute")
+            
+        with col4:
+            st.markdown('<div style="width:24px;height:24px;background-color:#ecf0f1;margin-bottom:10px;"></div>', unsafe_allow_html=True)
+            st.write("Werktag")
+        
+        # Tabelle mit allen Feiertagen des Jahres
+        st.subheader(f"Feiertage in Hamburg {year}")
+        
+        # Feiertage in DataFrame konvertieren für bessere Darstellung
+        holidays_df = pd.DataFrame(
+            [(date.strftime("%d.%m.%Y"), calendar.day_name[date.weekday()], name) 
+             for date, name in holidays.items()],
+            columns=["Datum", "Wochentag", "Feiertag"]
+        )
+        
+        # Verwende die Standard-Streamlit-Tabelle
+        st.table(holidays_df)
+    
+    def get_german_holidays(year):
+        """
+        Gibt die deutschen Feiertage für das angegebene Jahr zurück.
+        
+        Args:
+            year (int): Das Jahr, für das die Feiertage zurückgegeben werden sollen.
+            
+        Returns:
+            dict: Ein Dictionary mit Datum als Schlüssel und Feiertagsname als Wert.
+        """
+        holidays = {}
+        
+        # Feste Feiertage
+        holidays[datetime.date(year, 1, 1)] = "Neujahr"
+        holidays[datetime.date(year, 5, 1)] = "Tag der Arbeit"
+        holidays[datetime.date(year, 10, 3)] = "Tag der Deutschen Einheit"
+        holidays[datetime.date(year, 12, 25)] = "1. Weihnachtstag"
+        holidays[datetime.date(year, 12, 26)] = "2. Weihnachtstag"
+        
+        # Bewegliche Feiertage basierend auf Ostern
+        easter = calculate_easter(year)
+        holidays[easter] = "Ostersonntag"
+        holidays[easter + datetime.timedelta(days=-2)] = "Karfreitag"
+        holidays[easter + datetime.timedelta(days=1)] = "Ostermontag"
+        holidays[easter + datetime.timedelta(days=39)] = "Christi Himmelfahrt"
+        holidays[easter + datetime.timedelta(days=49)] = "Pfingstsonntag"
+        holidays[easter + datetime.timedelta(days=50)] = "Pfingstmontag"
+        
+        # Reformationstag (nur in einigen Bundesländern, inkl. Hamburg)
+        holidays[datetime.date(year, 10, 31)] = "Reformationstag"
+        
+        return holidays
+    
+    def calculate_easter(year):
+        """
+        Berechnet das Datum des Ostersonntags für ein gegebenes Jahr.
+        Basierend auf dem Gauss-Algorithmus.
+        
+        Args:
+            year (int): Das Jahr, für das Ostern berechnet werden soll.
+            
+        Returns:
+            datetime.date: Das Datum des Ostersonntags.
+        """
+        a = year % 19
+        b = year // 100
+        c = year % 100
+        d = b // 4
+        e = b % 4
+        f = (b + 8) // 25
+        g = (b - f + 1) // 3
+        h = (19 * a + b - d - g + 15) % 30
+        i = c // 4
+        k = c % 4
+        l = (32 + 2 * e + 2 * i - h - k) % 7
+        m = (a + 11 * h + 22 * l) // 451
+        month = (h + l - 7 * m + 114) // 31
+        day = ((h + l - 7 * m + 114) % 31) + 1
+        
+        return datetime.date(year, month, day)
+    
+    def display_calendar(year, month, holidays):
+        """
+        Zeigt einen Kalender für den angegebenen Monat und das Jahr an.
+        
+        Args:
+            year (int): Das Jahr.
+            month (int): Der Monat (1-12).
+            holidays (dict): Ein Dictionary mit Feiertagen.
+        """
+        # Monatsnamen und Wochentagsnamen
+        month_name = calendar.month_name[month]
+        weekday_names = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
         
         # Kalender erstellen
-        cal = calendar.monthcalendar(selected_year, selected_month)
+        cal = calendar.monthcalendar(year, month)
         
-        # Wochentage
-        weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+        # Heutiges Datum
+        today = datetime.date.today()
         
         # HTML für den Kalender
-        calendar_html = f"""
+        html = f"""
         <div class="calendar-container">
-            <h2>{month_names[selected_month-1]} {selected_year}</h2>
+            <h2>{month_name} {year}</h2>
             <table class="calendar-table">
                 <tr>
         """
         
-        # Wochentage hinzufügen
-        for day in weekdays:
-            calendar_html += f"<th>{day}</th>"
+        # Wochentagsüberschriften
+        for weekday in weekday_names:
+            html += f"<th>{weekday}</th>"
         
-        calendar_html += "</tr>"
+        html += "</tr>"
         
-        # Tage hinzufügen
+        # Tage im Kalender
         for week in cal:
-            calendar_html += "<tr>"
-            for i, day in enumerate(week):
+            html += "<tr>"
+            for day in week:
                 if day == 0:
-                    # Leere Zelle
-                    calendar_html += "<td></td>"
+                    # Leere Zelle für Tage außerhalb des Monats
+                    html += "<td style='background-color: #f8f9fa;'></td>"
                 else:
-                    # Datum im Format YYYY-MM-DD
-                    date_str = f"{selected_year}-{selected_month:02d}-{day:02d}"
+                    date = datetime.date(year, month, day)
                     
-                    # Prüfen, ob es ein Feiertag ist
-                    holiday_name = None
-                    for holiday_date, name in holidays.items():
-                        if holiday_date == date_str:
-                            holiday_name = name
-                    
-                    # CSS-Klassen bestimmen
+                    # CSS-Klassen für verschiedene Tagestypen
                     classes = []
                     
-                    # Wochenende (Samstag und Sonntag)
-                    if i >= 5:  # Samstag und Sonntag
-                        classes.append("weekend")
-                    
-                    # Feiertag
+                    # Prüfen, ob es ein Feiertag ist
+                    holiday_name = holidays.get(date, "")
                     if holiday_name:
                         classes.append("holiday")
-                        
-                    # Heutiger Tag
-                    is_today = (selected_year == current_year and 
-                               selected_month == current_month and 
-                               day == current_day)
-                    if is_today:
+                        tooltip = f'title="{holiday_name}"'
+                    else:
+                        tooltip = ""
+                    
+                    # Prüfen, ob es ein Wochenende ist
+                    if date.weekday() >= 5:  # 5 = Samstag, 6 = Sonntag
+                        classes.append("weekend")
+                    
+                    # Prüfen, ob es heute ist
+                    if date == today:
                         classes.append("today")
                     
-                    # Zelle mit entsprechenden Klassen erstellen
-                    class_str = " ".join(classes)
-                    title_attr = f'title="{holiday_name}"' if holiday_name else ""
+                    class_str = f'class="{" ".join(classes)}"' if classes else ""
                     
-                    calendar_html += f'<td class="{class_str}" {title_attr}>{day}</td>'
+                    html += f'<td {class_str} {tooltip}>{day}</td>'
             
-            calendar_html += "</tr>"
+            html += "</tr>"
         
-        calendar_html += """
+        html += """
             </table>
-            
-            <div class="legend">
-                <h3>Legende:</h3>
-                <div class="legend-item">
-                    <div class="legend-color holiday-color"></div>
-                    <div>Feiertag (mit Mauszeiger über Datum fahren für Details)</div>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color weekend-color"></div>
-                    <div>Wochenende</div>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color today-color"></div>
-                    <div>Heute</div>
-                </div>
-            </div>
         </div>
         """
         
-        # Kalender anzeigen
-        st.markdown(calendar_html, unsafe_allow_html=True)
-        
-        # Liste der Feiertage für das ausgewählte Jahr anzeigen
-        st.subheader(f"Feiertage in Hamburg {selected_year}")
-        
-        # Feiertage nach Datum sortieren
-        sorted_holidays = sorted(holidays.items())
-        
-        # Feiertage in einer schönen Tabelle anzeigen
-        if sorted_holidays:
-            holiday_data = []
-            for date_str, name in sorted_holidays:
-                # Datum formatieren
-                date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-                formatted_date = date_obj.strftime("%d.%m.%Y")
-                
-                # Wochentag bestimmen
-                weekday = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"][date_obj.weekday()]
-                
-                holiday_data.append({
-                    "Datum": formatted_date,
-                    "Wochentag": weekday,
-                    "Feiertag": name
-                })
-            
-            # DataFrame erstellen und anzeigen
-            df = pd.DataFrame(holiday_data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-        else:
-            st.info(f"Keine Feiertage für Hamburg im Jahr {selected_year} gefunden.")
+        st.markdown(html, unsafe_allow_html=True)
     
-    # Rückgabe der UI-Funktion
     return show_holiday_calendar_ui
-
-# Exportiere die Funktionen
-__all__ = ['implement_holiday_calendar']
