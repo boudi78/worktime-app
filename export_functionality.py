@@ -7,7 +7,7 @@ import io
 import base64
 from datetime import datetime, timedelta
 import sys
-sys.path.append('/home/ubuntu')
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from datetime_utils import parse_datetime_string
 
 def implement_export_functionality():
