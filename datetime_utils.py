@@ -1,21 +1,22 @@
 from datetime import datetime
 
-def ensure_datetime(dt_value):
+def parse_datetime_string(date_string):
     """
-    Stellt sicher, dass der Wert ein datetime-Objekt ist.
-    Konvertiert Strings in datetime-Objekte, gibt datetime-Objekte unverändert zurück.
+    Parst einen Datetime-String in verschiedenen Formaten.
     """
-    if isinstance(dt_value, datetime):
-        return dt_value
-    elif isinstance(dt_value, str):
+    if not date_string:
+        return None
+    
+    try:
+        # Versuche ISO-Format zu parsen
+        return datetime.fromisoformat(date_string)
+    except ValueError:
         try:
-            # Versuche ISO-Format zu parsen
-            return datetime.fromisoformat(dt_value)
+            # Versuche altes Format zu parsen
+            return datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
         except ValueError:
             try:
-                # Versuche altes Format zu parsen
-                return datetime.strptime(dt_value, "%Y-%m-%d %H:%M:%S")
+                # Versuche Datumsformat ohne Zeit
+                return datetime.strptime(date_string, "%Y-%m-%d")
             except ValueError:
-                # Wenn beide Formate fehlschlagen, gib None zurück
                 return None
-    return None
