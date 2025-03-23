@@ -1,33 +1,21 @@
 from datetime import datetime
 
-def parse_datetime_string(datetime_str):
+def ensure_datetime(dt_value):
     """
-    Parse a datetime string in either ISO format or custom format.
-    
-    This function handles both the new ISO format (with 'T') and the old
-    custom format ('%Y-%m-%d %H:%M:%S') for backward compatibility.
-    
-    Args:
-        datetime_str (str): The datetime string to parse
-        
-    Returns:
-        datetime: The parsed datetime object, or None if parsing fails
+    Stellt sicher, dass der Wert ein datetime-Objekt ist.
+    Konvertiert Strings in datetime-Objekte, gibt datetime-Objekte unverändert zurück.
     """
-    if not datetime_str:
-        return None
-    
-    # Try to parse as ISO format first (new format)
-    if 'T' in datetime_str:
+    if isinstance(dt_value, datetime):
+        return dt_value
+    elif isinstance(dt_value, str):
         try:
-            return datetime.fromisoformat(datetime_str)
+            # Versuche ISO-Format zu parsen
+            return datetime.fromisoformat(dt_value)
         except ValueError:
-            pass
-    
-    # Try to parse as custom format (old format)
-    try:
-        return datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
-    except ValueError:
-        pass
-    
-    # If all parsing attempts fail, return None
+            try:
+                # Versuche altes Format zu parsen
+                return datetime.strptime(dt_value, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                # Wenn beide Formate fehlschlagen, gib None zurück
+                return None
     return None
