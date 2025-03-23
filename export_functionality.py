@@ -7,8 +7,11 @@ import io
 import base64
 from datetime import datetime, timedelta
 import sys
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+import os
+sys.path.append(os.path.dirname(__file__))  # <- wichtig!
+
 from datetime_utils import parse_datetime_string
+
 
 def implement_export_functionality():
     """
