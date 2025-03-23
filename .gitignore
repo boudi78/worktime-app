@@ -1,14 +1,45 @@
-# Versteckte Dateien
+# Python-Bytecode
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 
-# Virtuelle Umgebung
+# Virtuelle Umgebungen
+.venv/
+env/
 venv/
-*.env
-*.secret
+ENV/
 
-# Streamlit & Logs
+# OS-spezifisch
+.DS_Store
+Thumbs.db
+
+# Streamlit Cache
 .streamlit/
-logs/
-".streamlit/secrets.toml" 
+
+# Log-Dateien & temporäres
+*.log
+*.tmp
+
+# Export-Dateien
+*.csv
+*.pdf
+*.xlsx
+
+# Sensible oder generierte Daten
+data/*.json
+employees.json
+teams.json
+time_entries.json
+projects.json
+homeoffice_data.json
+roles.json
+leave_data.json
+leave_requests.json
+verwaltung.json
+
+# IDE & Editor Dateien
+.vscode/
+.idea/
+
+# Sonstiges
+legend.html
