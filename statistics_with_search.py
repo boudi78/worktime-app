@@ -3,6 +3,9 @@ import pandas as pd
 import datetime
 from typing import Dict, List, Any, Callable
 from data_persistence import load_time_entries, load_employees
+import sqlite3
+
+conn = sqlite3.connect('time_entries.db')
 
 def show_statistics_with_search():
     """Main statistics display function"""
