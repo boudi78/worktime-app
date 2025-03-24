@@ -86,16 +86,24 @@ def load_time_entries():
         return []
 
 def save_time_entries(time_entries):
-    """Speichert Zeiteinträge in einer JSON-Datei"""
+    """Speichert Zeiteinträge in einer JSON-Datei mit Backup."""
     data_dir = "data"
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
-        
+
     file_path = os.path.join(data_dir, "time_entries.json")
-    
-    with open(file_path, "w") as f:
-        # Use the custom encoder to handle datetime objects
-        json.dump(time_entries, f, cls=DateTimeEncoder)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    backup_path = os.path.join(data_dir, f"time_entries_backup_{timestamp}.json")
+
+    # ✅ Backup anlegen – nur wenn Datei bereits existiert
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as original, open(backup_path, "w", encoding="utf-8") as backup:
+            backup.write(original.read())
+
+    # ✅ Deine bestehende Speichermethode bleibt erhalten
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(time_entries, f, cls=DateTimeEncoder, indent=4)
+
 
 def load_projects():
     """Lädt Projekte aus einer JSON-Datei"""

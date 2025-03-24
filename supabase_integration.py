@@ -1,5 +1,7 @@
 import streamlit as st
 from supabase import create_client
+st.write(st.secrets)  # This will display the contents of your secrets in the app
+
 
 # Supabase-Client initialisieren
 def init_supabase():
