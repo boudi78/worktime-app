@@ -5,6 +5,7 @@ import datetime
 from dateutil.relativedelta import relativedelta
 import os
 
+
 # Import der Datenpersistenz-Funktionen
 from data_persistence import (
     load_employees, save_employees,
@@ -226,9 +227,12 @@ def verwalte_allgemeine_daten():
     if team_auswahl:
         st.subheader(f"Zeiterfassung für Team: {team_auswahl}")
         # Mitarbeiter des Teams anzeigen
-        team_mitarbeiter = [mitarbeiter for mitarbeiter in employees if mitarbeiter["team"] == team_auswahl]
+        # Verwende get() für sicheren Zugriff auf das 'team'-Feld
+        team_mitarbeiter = [mitarbeiter for mitarbeiter in employees if mitarbeiter.get("team") == team_auswahl]
+
         if not team_mitarbeiter:
             st.write(f"Keine Mitarbeiter in Team {team_auswahl} gefunden.")
+
         else:
             mitarbeiter_auswahl = st.selectbox("Mitarbeiter auswählen", team_mitarbeiter, key="mitarbeiter_auswahl_team")
 
@@ -376,6 +380,84 @@ def show_login_page() -> None:
 
         if not user_exists:
             st.error("Ungültiger Benutzername oder Passwort!")
+
+# Erweiterte Registrierungsfunktion
+def show_register_page() -> None:
+    """Zeigt die Registrierungsseite an."""
+    st.title("Registrieren")
+
+    # Eingabefelder für die Registrierung
+    name = st.text_input("Name", key="register_name")
+    username = st.text_input("Benutzername", key="register_username")
+    password = st.text_input("Passwort", type="password", key="register_password")
+    confirm_password = st.text_input("Passwort bestätigen", type="password", key="register_confirm_password")
+
+    # Team-Auswahl hinzufügen
+    team_options = ["Team 1", "Team 2", "Team 3", "Lager"]
+    selected_team = st.selectbox("Team auswählen", team_options, key="register_team")
+
+    # Standort automatisch basierend auf Team bestimmen
+    if selected_team == "Team 1":
+        standort = "Werner-Siemens-Straße 107, 22113 Hamburg"
+    elif selected_team == "Team 2":
+        standort = "Werner-Siemens-Straße 39, 22113 Hamburg"
+    elif selected_team == "Team 3":
+        standort = "Werner-Siemens-Straße 39, 22113 Hamburg"
+    elif selected_team == "Lager":
+        # Lager kann an beiden Standorten sein, hier Standardwert setzen
+        standort = "Werner-Siemens-Straße 107, 22113 Hamburg"
+
+    # Anzeige des zugewiesenen Standorts
+    st.info(f"Zugewiesener Standort: {standort}")
+
+    # Registrieren-Button
+    if st.button("Registrieren", key="register_button"):
+        # Überprüfen, ob alle Felder ausgefüllt sind
+        if not name or not username or not password or not confirm_password:
+            st.error("Bitte füllen Sie alle Felder aus!")
+            return
+
+        # Überprüfen, ob die Passwörter übereinstimmen
+        if password != confirm_password:
+            st.error("Passwörter stimmen nicht überein!")
+            return
+
+        # Mitarbeiterdaten laden
+        employees = load_employees()
+
+        # Überprüfen, ob Benutzername bereits existiert
+        for employee in employees:
+            if employee["username"] == username:
+                st.error("Benutzername bereits vergeben!")
+                return
+
+        # Neue ID generieren
+        new_id = 1
+        if employees:
+            new_id = max(employee["id"] for employee in employees) + 1
+
+        # Neuen Mitarbeiter erstellen
+        new_employee = {
+            "id": new_id,
+            "name": name,
+            "username": username,
+            "password": password,
+            "is_admin": len(employees) == 0,  # Erster Benutzer ist Admin
+            "status": "Abwesend",
+            "check_in_time": None,
+            "check_out_time": None,
+            "work_time_model": "vollzeit",
+            "custom_schedule": {},
+            "team": selected_team,
+            "standort": standort
+        }
+
+        # Mitarbeiter hinzufügen und speichern
+        employees.append(new_employee)
+        save_employees(employees)
+
+        st.success("Registrierung erfolgreich! Sie können sich jetzt einloggen.")
+
 
 # Erweiterte Registrierungsfunktion
 def show_register_page() -> None:
@@ -832,12 +914,17 @@ def show_admin_location_management():
                     st.write(f"Start: {start_time_str}, Ende: {end_time_str}")
                     st.write("---")
 
+from statistics_with_search import implement_statistics_with_search
+
 # Hauptfunktion
 def main():
     """Hauptfunktion der App."""
     # Initialisierung der Session-State-Variablen
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
+
+    # Initialisierung der UI-Funktionen
+    show_statistics_ui = implement_statistics_with_search()
 
     # Seitenleiste für die Navigation
     if st.session_state.logged_in:
@@ -863,60 +950,45 @@ def main():
         
         # Anzeige der ausgewählten Seite
         if page == "Profil":
-            # Profilseite anzeigen
             show_profile_page()
         elif page == "Zeiterfassung":
-            # Zeiterfassungsseite anzeigen
             verwalte_allgemeine_daten()
         elif page == "Arbeitsort":
-            # Verbesserte Standortauswahl anzeigen
             show_location_selection_page()
         elif page == "Urlaub/Krankmeldung":
-            # Urlaubs- und Krankmeldungsverwaltung anzeigen
             show_leave_management_ui()
         elif page == "Feiertagskalender":
-            # Feiertagskalender anzeigen
             show_holiday_calendar_ui()
         elif page == "Auswertungen":
-            # Statistiken und Auswertungen anzeigen
             show_statistics_ui()
         elif page == "Export":
-            # Export-Funktionalität anzeigen
             show_export_ui()
         elif page == "Mitarbeiter":
-            # Mitarbeiterverwaltung anzeigen (nur für Admins)
             if st.session_state.get("is_admin", False):
                 show_employees_page()
             else:
                 st.warning("Sie haben keine Berechtigung, diese Seite zu sehen.")
         elif page == "Rollenverwaltung":
-            # Rollenverwaltung anzeigen (nur für Admins)
             if st.session_state.get("is_admin", False):
                 show_role_management_ui()
             else:
                 st.warning("Sie haben keine Berechtigung, diese Seite zu sehen.")
         elif page == "Standortverwaltung":
-            # Standortverwaltung anzeigen (nur für Admins)
             if st.session_state.get("is_admin", False):
                 show_admin_location_management()
             else:
                 st.warning("Sie haben keine Berechtigung, diese Seite zu sehen.")
         elif page == "Admin Urlaub/Krankmeldung":
-            # Admin-Ansicht für Urlaubs- und Krankmeldungsverwaltung (nur für Admins)
             if st.session_state.get("is_admin", False):
                 show_admin_leave_management_ui()
             else:
                 st.warning("Sie haben keine Berechtigung, diese Seite zu sehen.")
     else:
-        # Login- und Registrierungsseite anzeigen
         tab1, tab2 = st.tabs(["Login", "Registrieren"])
-        
         with tab1:
             show_login_page()
-        
         with tab2:
             show_register_page()
 
 if __name__ == "__main__":
     main()
-
