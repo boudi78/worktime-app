@@ -25,50 +25,77 @@ def ensure_data_directories():
     # .gitignore-Datei überprüfen und anpassen
     gitignore_path = ".gitignore"
     if os.path.exists(gitignore_path):
-        with open(gitignore_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        
-        # Prüfen, ob data/ ausgeschlossen ist
-        if "data/" in content or "/data/" in content:
-            # Ändern Sie .gitignore, um data/*.json auszuschließen, aber nicht das Verzeichnis selbst
-            with open(gitignore_path, "w") as f:
-                new_content = content.replace("data/", "# data/")
-                new_content = new_content.replace("/data/", "# /data/")
-                # Fügen Sie eine Regel hinzu, um nur bestimmte Dateien auszuschließen
-                if "# Behalte Benutzerdaten" not in new_content:
-                    new_content += "\n# Behalte Benutzerdaten\n!data/employees.json\n!data/login_attempts.json\n"
-                f.write(new_content)
+        try:
+            # Versuchen mit verschiedenen Encodings zu lesen
+            encodings = ['utf-8', 'latin-1', 'cp1252', 'ascii']
+            content = None
+            
+            for encoding in encodings:
+                try:
+                    with open(gitignore_path, "r", encoding=encoding) as f:
+                        content = f.read()
+                    break  # Wenn erfolgreich, Schleife beenden
+                except UnicodeDecodeError:
+                    continue  # Nächstes Encoding versuchen
+            
+            # Wenn kein Encoding funktioniert hat, überspringen
+            if content is None:
+                print(f"Warnung: Konnte .gitignore nicht lesen. Überspringe Anpassung.")
+                return
+            
+            # Prüfen, ob data/ ausgeschlossen ist
+            if "data/" in content or "/data/" in content:
+                # Ändern Sie .gitignore, um data/*.json auszuschließen, aber nicht das Verzeichnis selbst
+                try:
+                    with open(gitignore_path, "w", encoding='utf-8') as f:
+                        new_content = content.replace("data/", "# data/")
+                        new_content = new_content.replace("/data/", "# /data/")
+                        # Fügen Sie eine Regel hinzu, um nur bestimmte Dateien auszuschließen
+                        if "# Behalte Benutzerdaten" not in new_content:
+                            new_content += "\n# Behalte Benutzerdaten\n!data/employees.json\n!data/login_attempts.json\n"
+                        f.write(new_content)
+                except Exception as e:
+                    print(f"Warnung: Konnte .gitignore nicht aktualisieren: {e}")
+        except Exception as e:
+            print(f"Warnung: Fehler beim Bearbeiten von .gitignore: {e}")
     
     # Erstellen Sie eine .gitkeep-Datei im Datenverzeichnis
-    with open(os.path.join(DATA_DIR, ".gitkeep"), "w") as f:
-        f.write("# Diese Datei stellt sicher, dass das Verzeichnis in Git verfolgt wird\n")
+    try:
+        with open(os.path.join(DATA_DIR, ".gitkeep"), "w", encoding='utf-8') as f:
+            f.write("# Diese Datei stellt sicher, dass das Verzeichnis in Git verfolgt wird\n")
+    except Exception as e:
+        print(f"Warnung: Konnte .gitkeep nicht erstellen: {e}")
     
     # Stellen Sie sicher, dass die Dateien existieren und Schreibrechte haben
     for file_path in [EMPLOYEES_FILE, LOGIN_ATTEMPTS_FILE]:
         if not os.path.exists(file_path):
-            directory = os.path.dirname(file_path)
-            os.makedirs(directory, exist_ok=True)
-            with open(file_path, "w") as f:
-                if file_path.endswith("employees.json"):
-                    # Standardbenutzer hinzufügen
-                    json.dump([{
-                        "id": "admin",
-                        "name": "Admin Benutzer",
-                        "email": "admin@example.com",
-                        "username": "admin",
-                        "password": hash_password("admin"),
-                        "role": "Admin",
-                        "location": "Home Office",
-                        "created_at": datetime.now().isoformat()
-                    }], f, indent=4, ensure_ascii=False)
-                else:
-                    json.dump({}, f, indent=4)
+            try:
+                directory = os.path.dirname(file_path)
+                os.makedirs(directory, exist_ok=True)
+                with open(file_path, "w", encoding='utf-8') as f:
+                    if file_path.endswith("employees.json"):
+                        # Standardbenutzer hinzufügen
+                        json.dump([{
+                            "id": "admin",
+                            "name": "Admin Benutzer",
+                            "email": "admin@example.com",
+                            "username": "admin",
+                            "password": hash_password("admin"),
+                            "role": "Admin",
+                            "location": "Home Office",
+                            "created_at": datetime.now().isoformat()
+                        }], f, indent=4, ensure_ascii=False)
+                    else:
+                        json.dump({}, f, indent=4)
+            except Exception as e:
+                print(f"Warnung: Konnte {file_path} nicht erstellen: {e}")
+                continue
         
         # Stellen Sie sicher, dass die Datei Schreibrechte hat
         try:
             os.chmod(file_path, 0o666)  # Lese- und Schreibrechte für alle
-        except:
-            print(f"Warnung: Konnte Berechtigungen für {file_path} nicht ändern")
+        except Exception as e:
+            print(f"Warnung: Konnte Berechtigungen für {file_path} nicht ändern: {e}")
 
 def load_employees():
     """Lädt Mitarbeiterdaten aus der JSON-Datei."""
@@ -79,6 +106,14 @@ def load_employees():
         except json.JSONDecodeError:
             print(f"Warnung: Konnte JSON aus {EMPLOYEES_FILE} nicht dekodieren. Gebe leere Liste zurück.")
             return []
+        except UnicodeDecodeError:
+            try:
+                # Versuchen mit latin-1 zu lesen
+                with open(EMPLOYEES_FILE, "r", encoding="latin-1") as f:
+                    return json.load(f)
+            except:
+                print(f"Warnung: Konnte {EMPLOYEES_FILE} nicht mit alternativen Encodings lesen. Gebe leere Liste zurück.")
+                return []
     else:
         # Erstelle Verzeichnis, falls es nicht existiert
         os.makedirs(os.path.dirname(EMPLOYEES_FILE), exist_ok=True)
@@ -100,8 +135,8 @@ def save_employees(employees):
         # Stellen Sie sicher, dass die Datei Schreibrechte hat
         try:
             os.chmod(EMPLOYEES_FILE, 0o666)  # Lese- und Schreibrechte für alle
-        except:
-            print(f"Warnung: Konnte Berechtigungen für {EMPLOYEES_FILE} nicht ändern")
+        except Exception as e:
+            print(f"Warnung: Konnte Berechtigungen für {EMPLOYEES_FILE} nicht ändern: {e}")
         
         return True
     except Exception as e:
@@ -112,8 +147,8 @@ def save_employees(employees):
             with open(backup_path, "w", encoding="utf-8") as f:
                 json.dump(employees, f, indent=4, ensure_ascii=False)
             print(f"Mitarbeiterdaten wurden in Backup-Datei gespeichert: {backup_path}")
-        except:
-            print("Konnte auch keine Backup-Datei erstellen")
+        except Exception as backup_error:
+            print(f"Konnte auch keine Backup-Datei erstellen: {backup_error}")
         return False
 
 def hash_password(password):
@@ -123,9 +158,13 @@ def hash_password(password):
 
 def verify_password(password, hashed_password):
     """Überprüft, ob ein Passwort mit dem gespeicherten Hash übereinstimmt."""
-    hashed_bytes = hashed_password.encode('utf-8')
-    password_bytes = password.encode('utf-8')
-    return bcrypt.checkpw(password_bytes, hashed_bytes)
+    try:
+        hashed_bytes = hashed_password.encode('utf-8')
+        password_bytes = password.encode('utf-8')
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception as e:
+        print(f"Fehler bei der Passwortüberprüfung: {e}")
+        return False
 
 def get_login_attempts(username):
     """Lädt die Anmeldeversuche für einen Benutzer."""
@@ -136,18 +175,32 @@ def get_login_attempts(username):
                 return attempts.get(username, {"attempts": 0, "lockout_until": None})
         except json.JSONDecodeError:
             return {"attempts": 0, "lockout_until": None}
+        except UnicodeDecodeError:
+            try:
+                # Versuchen mit latin-1 zu lesen
+                with open(LOGIN_ATTEMPTS_FILE, "r", encoding="latin-1") as f:
+                    attempts = json.load(f)
+                    return attempts.get(username, {"attempts": 0, "lockout_until": None})
+            except:
+                return {"attempts": 0, "lockout_until": None}
     return {"attempts": 0, "lockout_until": None}
 
 def update_login_attempts(username, success=False):
     """Aktualisiert die Anmeldeversuche für einen Benutzer."""
+    attempts = {}
     if os.path.exists(LOGIN_ATTEMPTS_FILE):
         try:
             with open(LOGIN_ATTEMPTS_FILE, "r", encoding="utf-8") as f:
                 attempts = json.load(f)
         except json.JSONDecodeError:
             attempts = {}
-    else:
-        attempts = {}
+        except UnicodeDecodeError:
+            try:
+                # Versuchen mit latin-1 zu lesen
+                with open(LOGIN_ATTEMPTS_FILE, "r", encoding="latin-1") as f:
+                    attempts = json.load(f)
+            except:
+                attempts = {}
     
     user_attempts = attempts.get(username, {"attempts": 0, "lockout_until": None})
     now = datetime.now()
@@ -167,9 +220,12 @@ def update_login_attempts(username, success=False):
             user_attempts["lockout_until"] = (now + LOCKOUT_DURATION).isoformat()
     
     attempts[username] = user_attempts
-    os.makedirs(os.path.dirname(LOGIN_ATTEMPTS_FILE), exist_ok=True)
-    with open(LOGIN_ATTEMPTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(attempts, f, indent=4, ensure_ascii=False)
+    try:
+        os.makedirs(os.path.dirname(LOGIN_ATTEMPTS_FILE), exist_ok=True)
+        with open(LOGIN_ATTEMPTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(attempts, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"Fehler beim Speichern der Anmeldeversuche: {e}")
 
 def reset_login_attempts(username=None):
     """Setzt die Anmeldeversuche für einen Benutzer oder alle Benutzer zurück."""
@@ -177,18 +233,20 @@ def reset_login_attempts(username=None):
         try:
             with open(LOGIN_ATTEMPTS_FILE, "r", encoding="utf-8") as f:
                 attempts = json.load(f)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            attempts = {}
             
-            if username:
-                # Nur für einen bestimmten Benutzer zurücksetzen
-                if username in attempts:
-                    attempts[username] = {"attempts": 0, "lockout_until": None}
-            else:
-                # Für alle Benutzer zurücksetzen
-                attempts = {}
-            
+        if username:
+            # Nur für einen bestimmten Benutzer zurücksetzen
+            if username in attempts:
+                attempts[username] = {"attempts": 0, "lockout_until": None}
+        else:
+            # Für alle Benutzer zurücksetzen
+            attempts = {}
+        
+        try:
             with open(LOGIN_ATTEMPTS_FILE, "w", encoding="utf-8") as f:
                 json.dump(attempts, f, indent=4, ensure_ascii=False)
-            
             return True
         except Exception as e:
             print(f"Fehler beim Zurücksetzen der Anmeldeversuche: {e}")
@@ -198,13 +256,24 @@ def reset_login_attempts(username=None):
 def show_login():
     """Zeigt die Login-Seite an."""
     # Stellen Sie sicher, dass die Datenverzeichnisse existieren
-    ensure_data_directories()
+    try:
+        ensure_data_directories()
+    except Exception as e:
+        st.error(f"Fehler beim Initialisieren der Datenverzeichnisse: {str(e)}")
+        st.info("Die Anwendung wird trotzdem fortgesetzt, aber einige Funktionen könnten eingeschränkt sein.")
     
     # Logo und Firmenname anzeigen
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        st.image("grafik.png", width=100)
-    with col2:
+    try:
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            if os.path.exists("grafik.png"):
+                st.image("grafik.png", width=100)
+            else:
+                st.warning("Logo-Datei (grafik.png) nicht gefunden.")
+        with col2:
+            st.title("Team-sped Seehafenspedition GmbH")
+    except Exception as e:
+        st.error(f"Fehler beim Anzeigen des Logos: {str(e)}")
         st.title("Team-sped Seehafenspedition GmbH")
     
     st.title("🔐 Anmeldung & Registrierung")
@@ -415,18 +484,19 @@ def show_login():
                     }
                     
                     employees.append(new_user)
-                    save_employees(employees)
-                    
-                    st.success("Registrierung erfolgreich! Sie können sich jetzt anmelden.")
-                    
-                    # Felder zurücksetzen
-                    st.session_state.reg_name = ""
-                    st.session_state.reg_email = ""
-                    st.session_state.reg_username = ""
-                    st.session_state.reg_password = ""
-                    st.session_state.reg_confirm_password = ""
-                    st.session_state.reg_team = ""
-                    st.session_state.reg_phone = ""
-                    st.session_state.terms_agreed = False
+                    if save_employees(employees):
+                        st.success("Registrierung erfolgreich! Sie können sich jetzt anmelden.")
+                        
+                        # Felder zurücksetzen
+                        st.session_state.reg_name = ""
+                        st.session_state.reg_email = ""
+                        st.session_state.reg_username = ""
+                        st.session_state.reg_password = ""
+                        st.session_state.reg_confirm_password = ""
+                        st.session_state.reg_team = ""
+                        st.session_state.reg_phone = ""
+                        st.session_state.terms_agreed = False
+                    else:
+                        st.error("Fehler beim Speichern der Registrierung. Bitte versuchen Sie es später erneut.")
             
             st.markdown('</div>', unsafe_allow_html=True)
