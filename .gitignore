@@ -2,7 +2,7 @@
 .env
 
 # Data-Ordner (für sensible Daten wie Datenbanken)
-# # # data/
+# # # # # # # # # # # # # data/
 
 # Python Bytecode-Dateien
 __pycache__/
@@ -20,5 +20,5 @@ __pycache__/
 
 
 # Behalte Benutzerdaten
-!# # data/employees.json
-!# # data/login_attempts.json
+!# # # # # # # # # # # # data/employees.json
+!# # # # # # # # # # # # data/login_attempts.json
