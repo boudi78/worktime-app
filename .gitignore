@@ -1,8 +1,8 @@
-# .env-Datei (für sensible Daten wie Passwörter)
+# .env-Datei (fÃ¼r sensible Daten wie PasswÃ¶rter)
 .env
 
-# Data-Ordner (für sensible Daten wie Datenbanken)
-data/
+# Data-Ordner (fÃ¼r sensible Daten wie Datenbanken)
+# # # data/
 
 # Python Bytecode-Dateien
 __pycache__/
@@ -11,10 +11,14 @@ __pycache__/
 .vscode/
 .idea/
 
-# Temporäre Dateien
+# TemporÃ¤re Dateien
 *.log
 *.tmp
 
 # Jupyter Notebooks Checkpoints
 .ipynb_checkpoints/
 
+
+# Behalte Benutzerdaten
+!# # data/employees.json
+!# # data/login_attempts.json
