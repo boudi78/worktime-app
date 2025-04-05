@@ -25,7 +25,7 @@ def ensure_data_directories():
     # .gitignore-Datei überprüfen und anpassen
     gitignore_path = ".gitignore"
     if os.path.exists(gitignore_path):
-        with open(gitignore_path, "r") as f:
+        with open(gitignore_path, "r", encoding="utf-8") as f:
             content = f.read()
         
         # Prüfen, ob data/ ausgeschlossen ist
