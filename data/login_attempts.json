@@ -1,0 +1,14 @@
+{
+    "admin": {
+        "attempts": 0,
+        "lockout_until": null
+    },
+    "boudi78": {
+        "attempts": 0,
+        "lockout_until": null
+    },
+    "admin@example.com": {
+        "attempts": 5,
+        "lockout_until": "2025-04-04T20:21:14.560787"
+    }
+}
