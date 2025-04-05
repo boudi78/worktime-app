@@ -17,6 +17,59 @@ MAX_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION = timedelta(minutes=15)
 
 # Hilfsfunktionen
+def ensure_data_directories():
+    """Stellt sicher, dass alle erforderlichen Datenverzeichnisse existieren und nicht von .gitignore ausgeschlossen werden."""
+    # Hauptdatenverzeichnis erstellen
+    os.makedirs(DATA_DIR, exist_ok=True)
+    
+    # .gitignore-Datei überprüfen und anpassen
+    gitignore_path = ".gitignore"
+    if os.path.exists(gitignore_path):
+        with open(gitignore_path, "r") as f:
+            content = f.read()
+        
+        # Prüfen, ob data/ ausgeschlossen ist
+        if "data/" in content or "/data/" in content:
+            # Ändern Sie .gitignore, um data/*.json auszuschließen, aber nicht das Verzeichnis selbst
+            with open(gitignore_path, "w") as f:
+                new_content = content.replace("data/", "# data/")
+                new_content = new_content.replace("/data/", "# /data/")
+                # Fügen Sie eine Regel hinzu, um nur bestimmte Dateien auszuschließen
+                if "# Behalte Benutzerdaten" not in new_content:
+                    new_content += "\n# Behalte Benutzerdaten\n!data/employees.json\n!data/login_attempts.json\n"
+                f.write(new_content)
+    
+    # Erstellen Sie eine .gitkeep-Datei im Datenverzeichnis
+    with open(os.path.join(DATA_DIR, ".gitkeep"), "w") as f:
+        f.write("# Diese Datei stellt sicher, dass das Verzeichnis in Git verfolgt wird\n")
+    
+    # Stellen Sie sicher, dass die Dateien existieren und Schreibrechte haben
+    for file_path in [EMPLOYEES_FILE, LOGIN_ATTEMPTS_FILE]:
+        if not os.path.exists(file_path):
+            directory = os.path.dirname(file_path)
+            os.makedirs(directory, exist_ok=True)
+            with open(file_path, "w") as f:
+                if file_path.endswith("employees.json"):
+                    # Standardbenutzer hinzufügen
+                    json.dump([{
+                        "id": "admin",
+                        "name": "Admin Benutzer",
+                        "email": "admin@example.com",
+                        "username": "admin",
+                        "password": hash_password("admin"),
+                        "role": "Admin",
+                        "location": "Home Office",
+                        "created_at": datetime.now().isoformat()
+                    }], f, indent=4, ensure_ascii=False)
+                else:
+                    json.dump({}, f, indent=4)
+        
+        # Stellen Sie sicher, dass die Datei Schreibrechte hat
+        try:
+            os.chmod(file_path, 0o666)  # Lese- und Schreibrechte für alle
+        except:
+            print(f"Warnung: Konnte Berechtigungen für {file_path} nicht ändern")
+
 def load_employees():
     """Lädt Mitarbeiterdaten aus der JSON-Datei."""
     if os.path.exists(EMPLOYEES_FILE):
@@ -35,10 +88,33 @@ def load_employees():
         return []
 
 def save_employees(employees):
-    """Speichert Mitarbeiterdaten in der JSON-Datei."""
-    os.makedirs(os.path.dirname(EMPLOYEES_FILE), exist_ok=True)
-    with open(EMPLOYEES_FILE, "w", encoding="utf-8") as f:
-        json.dump(employees, f, indent=4, ensure_ascii=False)
+    """Speichert Mitarbeiterdaten in der JSON-Datei mit verbesserten Fehlerprüfungen."""
+    try:
+        # Stellen Sie sicher, dass das Verzeichnis existiert
+        os.makedirs(os.path.dirname(EMPLOYEES_FILE), exist_ok=True)
+        
+        # Speichern Sie die Daten
+        with open(EMPLOYEES_FILE, "w", encoding="utf-8") as f:
+            json.dump(employees, f, indent=4, ensure_ascii=False)
+        
+        # Stellen Sie sicher, dass die Datei Schreibrechte hat
+        try:
+            os.chmod(EMPLOYEES_FILE, 0o666)  # Lese- und Schreibrechte für alle
+        except:
+            print(f"Warnung: Konnte Berechtigungen für {EMPLOYEES_FILE} nicht ändern")
+        
+        return True
+    except Exception as e:
+        print(f"Fehler beim Speichern der Mitarbeiterdaten: {e}")
+        # Versuchen Sie es mit einem Backup-Pfad
+        try:
+            backup_path = os.path.join(os.path.expanduser("~"), "worktime_employees_backup.json")
+            with open(backup_path, "w", encoding="utf-8") as f:
+                json.dump(employees, f, indent=4, ensure_ascii=False)
+            print(f"Mitarbeiterdaten wurden in Backup-Datei gespeichert: {backup_path}")
+        except:
+            print("Konnte auch keine Backup-Datei erstellen")
+        return False
 
 def hash_password(password):
     """Hasht ein Passwort mit bcrypt."""
@@ -95,8 +171,35 @@ def update_login_attempts(username, success=False):
     with open(LOGIN_ATTEMPTS_FILE, "w", encoding="utf-8") as f:
         json.dump(attempts, f, indent=4, ensure_ascii=False)
 
+def reset_login_attempts(username=None):
+    """Setzt die Anmeldeversuche für einen Benutzer oder alle Benutzer zurück."""
+    if os.path.exists(LOGIN_ATTEMPTS_FILE):
+        try:
+            with open(LOGIN_ATTEMPTS_FILE, "r", encoding="utf-8") as f:
+                attempts = json.load(f)
+            
+            if username:
+                # Nur für einen bestimmten Benutzer zurücksetzen
+                if username in attempts:
+                    attempts[username] = {"attempts": 0, "lockout_until": None}
+            else:
+                # Für alle Benutzer zurücksetzen
+                attempts = {}
+            
+            with open(LOGIN_ATTEMPTS_FILE, "w", encoding="utf-8") as f:
+                json.dump(attempts, f, indent=4, ensure_ascii=False)
+            
+            return True
+        except Exception as e:
+            print(f"Fehler beim Zurücksetzen der Anmeldeversuche: {e}")
+            return False
+    return False
+
 def show_login():
     """Zeigt die Login-Seite an."""
+    # Stellen Sie sicher, dass die Datenverzeichnisse existieren
+    ensure_data_directories()
+    
     # Logo und Firmenname anzeigen
     col1, col2 = st.columns([1, 3])
     with col1:
@@ -149,6 +252,10 @@ def show_login():
                     minutes = remaining_time.seconds // 60
                     seconds = remaining_time.seconds % 60
                     st.error(f"Konto gesperrt. Bitte versuchen Sie es in {minutes} Minuten und {seconds} Sekunden erneut.")
+                    if st.button("Anmeldeversuche zurücksetzen"):
+                        if reset_login_attempts(username):
+                            st.success("Anmeldeversuche wurden zurückgesetzt. Sie können es jetzt erneut versuchen.")
+                            st.rerun()
             
             col1, col2 = st.columns([1, 1])
             with col1:
@@ -184,6 +291,10 @@ def show_login():
                         login_attempts = get_login_attempts(username)
                         if login_attempts["attempts"] >= MAX_LOGIN_ATTEMPTS:
                             st.warning("Zu viele fehlgeschlagene Anmeldeversuche. Konto wurde gesperrt.")
+                            if st.button("Anmeldeversuche zurücksetzen"):
+                                if reset_login_attempts(username):
+                                    st.success("Anmeldeversuche wurden zurückgesetzt. Sie können es jetzt erneut versuchen.")
+                                    st.rerun()
             
             if demo_button:
                 # Demo-Zugang für einfachen Zugriff
