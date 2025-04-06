@@ -1,3 +1,4 @@
-web: streamlit run app.py
+web: python launch.py
+
 
 
