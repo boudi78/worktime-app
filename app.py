@@ -2,6 +2,19 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+
+# Nur für Heroku: config.toml automatisch erzeugen
+if not os.path.exists('.streamlit'):
+    os.makedirs('.streamlit')
+
+with open('.streamlit/config.toml', 'w') as f:
+    f.write("""
+[server]
+headless = true
+port = $PORT
+enableCORS = false
+""")
+
 from datetime import datetime
 from modules.utils import LOCATION_CODES, load_employees, load_time_entries, load_vacation_requests, load_sick_leaves, save_time_entry
 from modules.login import show_login
