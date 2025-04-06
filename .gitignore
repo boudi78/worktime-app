@@ -1,24 +1,34 @@
-# .env-Datei (für sensible Daten wie Passwörter)
-.env
-
-# Data-Ordner (für sensible Daten wie Datenbanken)
-# # # # # # # # # # # # # data/
-
-# Python Bytecode-Dateien
+# Python bytecode files
 __pycache__/
+*.pyc
+*.pyo
 
-# IDEs und Texteditor spezifische Dateien
+# IDE/Editor Files
 .vscode/
 .idea/
 
-# Temporäre Dateien
+# Environment files
+.env
+*.env
+
+# Virtualenv
+venv/
+env/
+ENV/
+
+# Log files
 *.log
-*.tmp
 
-# Jupyter Notebooks Checkpoints
-.ipynb_checkpoints/
+# Datenbankdateien
+*.sqlite3
 
+# Temporary files
+*.swp
+*.bak
 
-# Behalte Benutzerdaten
-!# # # # # # # # # # # # data/employees.json
-!# # # # # # # # # # # # data/login_attempts.json
+# Streamlit config file
+.streamlit/
+
+# Heroku specific files (wenn du Heroku verwendest)
+*.heroku/
+
